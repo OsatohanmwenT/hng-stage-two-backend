@@ -7,11 +7,14 @@ import com.osato.countries.services.CountryService;
 import com.osato.countries.services.CountryWebClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -60,9 +63,9 @@ public class CountryController {
 	}
 
 	@DeleteMapping("/countries/{name}")
-	public ResponseEntity<String> deleteCountry(@PathVariable String name) {
+	public ResponseEntity<Void> deleteCountry(@PathVariable String name) {
 		countryService.deleteByName(name);
-		return ResponseEntity.ok("Country deleted successfully: " + name);
+		return ResponseEntity.noContent().build();
 	}
 
 	@GetMapping("/status")
@@ -71,13 +74,26 @@ public class CountryController {
 	}
 
 	@GetMapping(value = "/countries/image", produces = MediaType.IMAGE_PNG_VALUE)
-	public ResponseEntity<String> getSummaryImage() throws Exception {
+	public ResponseEntity<?> getSummaryImage() {
 		try {
-			countryService.generateSummaryImage();
-			return ResponseEntity.ok("Summary image generated successfully.");
+			File cacheFile = new File("cache/summary.png"); // or use @Value config to read app.cache-dir
+			if (!cacheFile.exists()) {
+				// generate image now (safe); this will use imageService which sets headless mode
+				countryService.generateSummaryImage();
+				if (!cacheFile.exists()) {
+					return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+										 .body(Map.of("error", "Summary image could not be generated"));
+				}
+			}
+			byte[] bytes = Files.readAllBytes(cacheFile.toPath());
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.IMAGE_PNG);
+			headers.setContentLength(bytes.length);
+			return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
 		} catch (Exception e) {
+			log.error("Error serving summary image", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-								 .body("Error generating image: " + e.getMessage());
+								 .body(Map.of("error", "Internal server error"));
 		}
 	}
 }

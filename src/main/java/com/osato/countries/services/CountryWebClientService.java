@@ -84,7 +84,8 @@ public class CountryWebClientService {
 				log.warn("Skipping non-map country record: {}", raw);
 				continue;
 			}
-			@SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) raw;
+			@SuppressWarnings("unchecked")
+			Map<String, Object> data = (Map<String, Object>) raw;
 			try {
 				Country mapped = mapToCountry(data, ratesMap);
 				if (mapped != null) {
@@ -147,44 +148,32 @@ public class CountryWebClientService {
 		Double estimatedGdp = null;
 
 		if (currencyCode == null) {
-			// spec: no currencies -> set currency_code null, exchange_rate null, estimated_gdp = 0
-			currencyCode = null;
-			exchangeRate = null;
 			estimatedGdp = 0.0;
 		} else {
-			// try to find rate by code in ratesMap (keyed by currency code)
 			Object rateObj = ratesMap.get(currencyCode);
 			if (rateObj instanceof Number) {
 				exchangeRate = ((Number) rateObj).doubleValue();
-				// safety: avoid divide by zero
 				if (exchangeRate == 0.0) {
 					exchangeRate = null;
-					estimatedGdp = null;
 				} else {
 					int multiplier = randomMultiplier();
 					long pop = population == null ? 0L : population;
 					estimatedGdp = (pop * (double) multiplier) / exchangeRate;
 				}
-			} else {
-				// currency code not present in rates -> per spec set exchange_rate=null, estimated_gdp=null
-				exchangeRate = null;
-				estimatedGdp = null;
 			}
 		}
 
-		Country c = Country.builder()
-						   .name(name)
-						   .nameNormalized(safeNormalize(name))
-						   .capital(capital)
-						   .region(region)
-						   .population(population == null ? 0L : population)
-						   .currencyCode(currencyCode)
-						   .exchangeRate(exchangeRate)
-						   .estimatedGdp(estimatedGdp)
-						   .flagUrl(flagUrl)
-						   .build();
-
-		return c;
+		return Country.builder()
+					  .name(name)
+					  .nameNormalized(safeNormalize(name))
+					  .capital(capital)
+					  .region(region)
+					  .population(population == null ? 0L : population)
+					  .currencyCode(currencyCode)
+					  .exchangeRate(exchangeRate)
+					  .estimatedGdp(estimatedGdp)
+					  .flagUrl(flagUrl)
+					  .build();
 	}
 
 	private String extractName(Map<String, Object> data) {
@@ -212,12 +201,10 @@ public class CountryWebClientService {
 		Object cap = data.get("capital");
 		if (cap == null) return null;
 		if (cap instanceof String) return (String) cap;
-		if (cap instanceof List) {
-			List<?> list = (List<?>) cap;
-			if (!list.isEmpty()) return String.valueOf(list.get(0));
+		if (cap instanceof List<?> list) {
+			if (!list.isEmpty()) return String.valueOf(list.getFirst());
 			return null;
 		}
-		// fallback
 		return String.valueOf(cap);
 	}
 
@@ -250,10 +237,9 @@ public class CountryWebClientService {
 		}
 
 		// shape B: list/array of objects like [{code: "NGN", name: "..."}]
-		if (currenciesObj instanceof List) {
-			List<?> list = (List<?>) currenciesObj;
+		if (currenciesObj instanceof List<?> list) {
 			if (list.isEmpty()) return null;
-			Object first = list.get(0);
+			Object first = list.getFirst();
 			if (first instanceof Map) {
 				Object code = ((Map<?, ?>) first).get("code");
 				return code == null ? null : String.valueOf(code);

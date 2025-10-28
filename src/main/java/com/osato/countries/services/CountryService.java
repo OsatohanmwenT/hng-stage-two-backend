@@ -5,9 +5,7 @@ import com.osato.countries.mappers.CountryMapper;
 import com.osato.countries.models.dtos.CountryDto;
 import com.osato.countries.models.dtos.StatusResponse;
 import com.osato.countries.models.entities.Country;
-import com.osato.countries.models.entities.Metadata;
 import com.osato.countries.repositories.CountryRepository;
-import com.osato.countries.repositories.MetadataRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -52,10 +50,20 @@ public class CountryService {
 		// Sorting
 		if (sort != null) {
 			switch (sort.toLowerCase()) {
-				case "gdp_desc" -> countries.sort(Comparator.comparing(Country::getEstimatedGdp).reversed());
-				case "gdp_asc" -> countries.sort(Comparator.comparing(Country::getEstimatedGdp));
-				case "name_asc" -> countries.sort(Comparator.comparing(Country::getName));
-				case "name_desc" -> countries.sort(Comparator.comparing(Country::getName).reversed());
+				case "gdp_desc" -> countries.sort(
+						Comparator.comparing(Country::getEstimatedGdp,
+								Comparator.nullsLast(Comparator.naturalOrder())
+						).reversed()
+				);
+				case "gdp_asc" -> countries.sort(
+						Comparator.comparing(Country::getEstimatedGdp,
+								Comparator.nullsFirst(Comparator.naturalOrder())
+						)
+				);
+				case "name_asc" -> countries.sort(Comparator.comparing(c -> c.getName() == null ? "" : c.getName().toLowerCase()));
+				case "name_desc" -> countries.sort(Comparator.comparing(
+						(Country c) -> c.getName() == null ? "" : c.getName().toLowerCase()
+				).reversed());
 			}
 		}
 
@@ -91,7 +99,7 @@ public class CountryService {
 												  .filter(Objects::nonNull)
 												  .max(Instant::compareTo)
 												  .map(Instant::toString)
-												  .orElse("Never");
+												  .orElse(null);
 		return new StatusResponse(total, lastRefreshedAt);
 	}
 
